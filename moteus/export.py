@@ -22,6 +22,7 @@ ALL = [
     'Frame', 'FrameFilter', 'TransportDevice',
     'Fdcanusb', 'FdcanusbDevice', 'Controller', 'Register', 'Transport', 'TransportWrapper',
     'PythonCan', 'PythonCanDevice',
+    'Candle', 'CandleDevice',
     'Mode', 'QueryResolution', 'PositionResolution', 'Command', 'CommandError',
     'FaultError',
     'Stream',
@@ -35,6 +36,8 @@ ALL = [
     'Subframe', 'parse_frame',
     'ParsedRegisters', 'parse_registers', 'scale_register',
 ]
+from moteus.candle import Candle
+from moteus.candle_device import CandleDevice
 from moteus.command import Command
 from moteus.device_info import DeviceAddress, DeviceInfo
 from moteus.fdcanusb import Fdcanusb

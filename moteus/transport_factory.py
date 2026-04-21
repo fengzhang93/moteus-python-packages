@@ -18,6 +18,7 @@ import importlib_metadata
 import sys
 import warnings
 
+from . import candle_device
 from . import fdcanusb_device
 from . import pythoncan_device
 from . import transport
@@ -103,6 +104,77 @@ class PythonCanFactory:
         return pythoncan_device.PythonCanDevice.enumerate_devices(**kwargs)
 
 
+class CandleFactory:
+    """Transport factory for candle CAN-FD USB adapters.
+
+    Auto-activates on Windows and macOS where the python-can candle
+    backend is the native interface for such devices.  On Linux,
+    candle devices typically appear as socketcan interfaces and are
+    handled by PythonCanFactory instead.
+    """
+
+    PRIORITY = 12  # after FdcanusbFactory(10) and PythonCanFactory(11)
+
+    name = 'candle'
+
+    def add_args(self, parser):
+        parser.add_argument(
+            '--candle-bitrate', type=int, default=None,
+            metavar='RATE',
+            help='candle nominal bitrate in bps (default: 1000000)')
+        parser.add_argument(
+            '--candle-data-bitrate', type=int, default=None,
+            metavar='RATE',
+            help='candle data phase bitrate in bps for FD (default: 5000000)')
+        parser.add_argument(
+            '--candle-chan', type=int, action='append',
+            metavar='INDEX',
+            help='candle channel index (may be repeated)')
+
+    def is_args_set(self, args):
+        return args and (
+            getattr(args, 'candle_bitrate', None) is not None or
+            getattr(args, 'candle_data_bitrate', None) is not None or
+            getattr(args, 'candle_chan', None)
+        )
+
+    def __call__(self, args):
+        if not sys.platform.startswith('linux'):
+            # Only auto-enumerate on non-Linux; on Linux use socketcan.
+            pass
+        elif not self.is_args_set(args):
+            raise RuntimeError(
+                'candle transport requires --candle-chan on Linux')
+
+        kwargs = {}
+        if args:
+            if getattr(args, 'candle_bitrate', None):
+                kwargs['bitrate'] = args.candle_bitrate
+            if getattr(args, 'candle_data_bitrate', None):
+                kwargs['data_bitrate'] = args.candle_data_bitrate
+            if getattr(args, 'can_debug', None):
+                kwargs['debug_log'] = args.can_debug
+
+        all_devices = candle_device.CandleDevice.enumerate_devices(**kwargs)
+
+        if args and getattr(args, 'candle_chan', None):
+            selected = []
+            flat = list(all_devices)
+            for idx in args.candle_chan:
+                if idx < len(flat):
+                    selected.append(flat[idx])
+                else:
+                    raise RuntimeError(
+                        f'--candle-chan {idx} out of range '
+                        f'(found {len(flat)} channel(s))')
+            return selected
+
+        if not all_devices:
+            raise RuntimeError('No candle devices detected')
+
+        return all_devices
+
+
 TRANSPORT_FACTORIES = []
 
 _transports_initialized = False
@@ -117,6 +189,7 @@ def get_transport_factories():
         TRANSPORT_FACTORIES.extend([
             FdcanusbFactory(),
             PythonCanFactory(),
+            CandleFactory(),
         ] + [ep.load()() for ep in
              importlib_metadata.entry_points().select(
                  group='moteus.transports2')

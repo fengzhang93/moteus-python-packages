@@ -354,7 +354,7 @@ class PythonCanDevice(TransportDevice):
             dlc=dlc,
             data=frame.data + bytes(self._padding_byte) * padding_bytes,
             is_fd=frame.is_fd,
-            bitrate_switch=frame.bitrate_switch and not self._disable_brs,
+            bitrate_switch=False,
         )
 
     def _can_message_to_frame(self, message) -> Frame:
