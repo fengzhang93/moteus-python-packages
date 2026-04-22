@@ -35,7 +35,10 @@ moteus_tool = "moteus.moteus_tool:main"
 moteus_gui_canfd = "moteus.app.gui_app:main"
 
 [tool.setuptools]
-packages = ["moteus"]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["moteus*"]
 
 [tool.mypy]
 python_version = "3.11"

@@ -125,9 +125,9 @@ python -m moteus_gui.tview --can-iface socketcan --can-chan can0 --can-disable-b
 
 ```bash
 python -m moteus.app.gui_app
-python -m moteus.app.gui_app --can-type candle --can-chan 0 --ids 1,2
-python -m moteus.app.gui_app --can-type socketcan --can-chan can0 --ids 1
-python -m moteus.app.gui_app --can-type fdcanusb --can-chan /dev/ttyUSB0 --ids 1
+python -m moteus.app.gui_app --can-type candle --can-chan 0 --ids 1 --can-disable-brs
+python -m moteus.app.gui_app --can-type socketcan --can-chan can0 --ids 1,2 --can-disable-brs
+python -m moteus.app.gui_app --can-type fdcanusb --can-chan /dev/ttyUSB0 --ids 1,2 --can-disable-brs
 ```
 
 关键页面：

@@ -85,6 +85,7 @@ class MoteusApp:
         default_can_type: str = 'socketcan',
         default_can_chan: str = 'can0',
         default_ids: str = '1',
+        default_can_disable_brs: bool = False,
     ):
         self.manager = ControlManager(cycle_hz=200.0)
         self._state_q: queue.Queue = queue.Queue(maxsize=200)
@@ -105,6 +106,7 @@ class MoteusApp:
         self.var_chan      = tk.StringVar(value=default_can_chan)
         self.var_ids       = tk.StringVar(value=default_ids)
         self.var_status_lbl = tk.StringVar(value='Disconnected')
+        self._can_disable_brs = default_can_disable_brs
 
         # Position tab
         self.var_pos       = tk.StringVar(value='0.0')
@@ -399,7 +401,12 @@ class MoteusApp:
             return
         self._init_tree_rows(ids)
         self._log(f'Connecting: type={can_type} chan={can_chan} ids={ids}')
-        self.manager.connect(ids, can_type=can_type, can_chan=can_chan)
+        self.manager.connect(
+            ids,
+            can_type=can_type,
+            can_chan=can_chan,
+            can_disable_brs=self._can_disable_brs,
+        )
 
     def _on_disconnect(self) -> None:
         if self._csv_logger:
@@ -636,12 +643,15 @@ def main() -> None:
                         help='channel: can0 / /dev/ttyUSB0 / 0')
     parser.add_argument('--ids', default='1', metavar='IDS',
                         help='comma-separated controller IDs (default: 1)')
+    parser.add_argument('--can-disable-brs', action='store_true',
+                        help='disable CAN-FD BRS flag for transport devices')
     args = parser.parse_args()
 
     app = MoteusApp(
         default_can_type=args.can_type,
         default_can_chan=args.can_chan,
         default_ids=args.ids,
+        default_can_disable_brs=args.can_disable_brs,
     )
     app.run()
 

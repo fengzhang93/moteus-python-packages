@@ -151,6 +151,7 @@ class ControlManager:
         can_type: str = 'socketcan',
         can_iface: Optional[str] = None,
         can_chan: Optional[str] = 'can0',
+        can_disable_brs: bool = False,
     ) -> None:
         """Open CAN transport and start control loop in background thread.
 
@@ -163,6 +164,7 @@ class ControlManager:
             can_chan: Channel.  socketcan → ``'can0'``;
                       fdcanusb → ``'/dev/ttyUSB0'`` or ``'COM3'``;
                       candle → integer index string ``'0'``
+            can_disable_brs: Disable CAN-FD BRS flag on transmit frames.
         """
         with self._state_lock:
             if self._state in (ManagerState.CONNECTING, ManagerState.CONNECTED):
@@ -172,7 +174,7 @@ class ControlManager:
 
         self._loop_thread = threading.Thread(
             target=self._start_loop,
-            args=(list(controller_ids), can_type, can_iface, can_chan),
+            args=(list(controller_ids), can_type, can_iface, can_chan, can_disable_brs),
             daemon=True,
             name='moteus-control-loop',
         )
@@ -421,6 +423,7 @@ class ControlManager:
         can_type: str,
         can_iface: Optional[str],
         can_chan: Optional[str],
+        can_disable_brs: bool,
     ) -> None:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -429,7 +432,13 @@ class ControlManager:
         self._stop_event = asyncio.Event()
         try:
             loop.run_until_complete(
-                self._async_main(controller_ids, can_type, can_iface, can_chan)
+                self._async_main(
+                    controller_ids,
+                    can_type,
+                    can_iface,
+                    can_chan,
+                    can_disable_brs,
+                )
             )
         except Exception as exc:
             with self._state_lock:
@@ -451,8 +460,11 @@ class ControlManager:
         can_type: str,
         can_iface: Optional[str],
         can_chan: Optional[str],
+        can_disable_brs: bool,
     ) -> None:
-        transport = await self._build_transport(can_type, can_iface, can_chan)
+        transport = await self._build_transport(
+            can_type, can_iface, can_chan, can_disable_brs
+        )
         qr = _make_default_qr()
         controllers = {
             cid: Controller(id=cid, transport=transport, query_resolution=qr)
@@ -473,17 +485,23 @@ class ControlManager:
         can_type: str,
         can_iface: Optional[str],
         can_chan: Optional[str],
+        can_disable_brs: bool,
     ) -> _Transport:
         if can_type == 'fdcanusb':
-            device = FdcanusbDevice(can_chan)
+            device = FdcanusbDevice(can_chan, disable_brs=can_disable_brs)
         elif can_type == 'candle':
-            device = CandleDevice(channel=int(can_chan or '0'))
+            device = CandleDevice(
+                channel_index=int(can_chan or '0'),
+                disable_brs=can_disable_brs,
+            )
         else:
             kwargs: Dict[str, Any] = {}
             if can_chan:
                 kwargs['channel'] = can_chan
             if can_iface:
                 kwargs['interface'] = can_iface
+            if can_disable_brs:
+                kwargs['disable_brs'] = True
             device = PythonCanDevice(**kwargs)
         return _Transport([device])
 
@@ -492,17 +510,26 @@ class ControlManager:
         transport: _Transport,
         controllers: Dict[int, Controller],
     ) -> None:
+        stop_event = self._stop_event
+        cmd_queue = self._cmd_queue
+        if stop_event is None or cmd_queue is None:
+            return
+
         persistent_cmds: Dict[str, _CommandItem] = {}
         one_shot: Dict[int, _CommandItem] = {}
         loop = asyncio.get_event_loop()
 
-        while not self._stop_event.is_set():
+        # Keep transport transactions bounded so disconnect can terminate
+        # promptly even if a backend call blocks unexpectedly.
+        cycle_timeout = max(0.05, self._cycle_period_s * 2.0)
+
+        while not stop_event.is_set():
             t0 = loop.time()
 
             # Drain command queue
             while True:
                 try:
-                    item = self._cmd_queue.get_nowait()
+                    item = cmd_queue.get_nowait()
                     _apply_command(item, persistent_cmds, one_shot, controllers)
                 except asyncio.QueueEmpty:
                     break
@@ -519,9 +546,15 @@ class ControlManager:
 
             if cmds:
                 try:
-                    results = await transport.cycle(cmds)
+                    results = await asyncio.wait_for(
+                        transport.cycle(cmds),
+                        timeout=cycle_timeout,
+                    )
                     self._update_status(results)
                     self._fire_listeners()
+                except asyncio.TimeoutError:
+                    # Drop this cycle and continue so shutdown remains responsive.
+                    pass
                 except Exception:
                     pass
 
