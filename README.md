@@ -170,7 +170,12 @@ CsvLogger(
 可用字段：
 
 ```text
-timestamp  id  mode  position  velocity  torque  voltage  temperature  fault  trajectory_complete
+timestamp  id  mode  position  velocity  torque  voltage  temperature  fault
+trajectory_complete  abs_position
+encoder_0_position  encoder_0_velocity
+encoder_1_position  encoder_1_velocity
+encoder_2_position  encoder_2_velocity
+encoder_validity
 ```
 
 ### 在 GUI 中记录

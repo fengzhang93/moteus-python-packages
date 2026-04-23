@@ -60,6 +60,14 @@ class ControllerStatus:
     temperature: float = float('nan')
     fault: int = 0
     trajectory_complete: int = 0
+    abs_position: float = float('nan')
+    encoder_0_position: float = float('nan')
+    encoder_0_velocity: float = float('nan')
+    encoder_1_position: float = float('nan')
+    encoder_1_velocity: float = float('nan')
+    encoder_2_position: float = float('nan')
+    encoder_2_velocity: float = float('nan')
+    encoder_validity: int = 0
     last_update: float = 0.0
 
 
@@ -105,6 +113,17 @@ class _CommandItem:
 def _make_default_qr() -> QueryResolution:
     qr = QueryResolution()
     qr.trajectory_complete = mp.INT8
+    qr.abs_position = mp.F32
+    from moteus.protocol import Register
+    qr._extra = {
+        int(Register.ENCODER_0_POSITION): mp.F32,
+        int(Register.ENCODER_0_VELOCITY): mp.F32,
+        int(Register.ENCODER_1_POSITION): mp.F32,
+        int(Register.ENCODER_1_VELOCITY): mp.F32,
+        int(Register.ENCODER_2_POSITION): mp.F32,
+        int(Register.ENCODER_2_VELOCITY): mp.F32,
+        int(Register.ENCODER_VALIDITY): mp.INT8,
+    }
     return qr
 
 
@@ -581,6 +600,14 @@ class ControlManager:
                 temperature=float(v.get(Register.TEMPERATURE, math.nan)),
                 fault=int(v.get(Register.FAULT, 0)),
                 trajectory_complete=int(v.get(Register.TRAJECTORY_COMPLETE, 0)),
+                abs_position=float(v.get(Register.ABS_POSITION, math.nan)),
+                encoder_0_position=float(v.get(Register.ENCODER_0_POSITION, math.nan)),
+                encoder_0_velocity=float(v.get(Register.ENCODER_0_VELOCITY, math.nan)),
+                encoder_1_position=float(v.get(Register.ENCODER_1_POSITION, math.nan)),
+                encoder_1_velocity=float(v.get(Register.ENCODER_1_VELOCITY, math.nan)),
+                encoder_2_position=float(v.get(Register.ENCODER_2_POSITION, math.nan)),
+                encoder_2_velocity=float(v.get(Register.ENCODER_2_VELOCITY, math.nan)),
+                encoder_validity=int(v.get(Register.ENCODER_VALIDITY, 0)),
                 last_update=now,
             )
         if updates:
@@ -726,7 +753,14 @@ class CsvLogger:
         'voltage', 'temperature', 'fault',
     ]
 
-    ALL_FIELDS = DEFAULT_FIELDS + ['trajectory_complete']
+    ALL_FIELDS = DEFAULT_FIELDS + [
+        'trajectory_complete',
+        'abs_position',
+        'encoder_0_position', 'encoder_0_velocity',
+        'encoder_1_position', 'encoder_1_velocity',
+        'encoder_2_position', 'encoder_2_velocity',
+        'encoder_validity',
+    ]
 
     def __init__(
         self,
@@ -761,6 +795,14 @@ class CsvLogger:
                 'temperature': s.temperature,
                 'fault': s.fault,
                 'trajectory_complete': s.trajectory_complete,
+                'abs_position': s.abs_position,
+                'encoder_0_position': s.encoder_0_position,
+                'encoder_0_velocity': s.encoder_0_velocity,
+                'encoder_1_position': s.encoder_1_position,
+                'encoder_1_velocity': s.encoder_1_velocity,
+                'encoder_2_position': s.encoder_2_position,
+                'encoder_2_velocity': s.encoder_2_velocity,
+                'encoder_validity': s.encoder_validity,
             }
             rows.append({k: row_data[k] for k in self._fields if k in row_data})
 

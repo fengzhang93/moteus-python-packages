@@ -309,7 +309,14 @@ class MoteusApp:
         ttk.Label(tab, text='Available:',
                   foreground='gray').grid(row=r, column=0, sticky='ne',
                                           padx=(8, 4), pady=(0, 4))
-        avail = 'timestamp, id, mode, position, velocity, torque, voltage, temperature, fault, trajectory_complete'
+        avail = (
+            'timestamp, id, mode, position, velocity, torque, voltage, temperature, fault, '
+            'trajectory_complete, abs_position, '
+            'encoder_0_position, encoder_0_velocity, '
+            'encoder_1_position, encoder_1_velocity, '
+            'encoder_2_position, encoder_2_velocity, '
+            'encoder_validity'
+        )
         ttk.Label(tab, text=avail, wraplength=400,
                   foreground='gray', font=('', 8)).grid(
             row=r, column=1, columnspan=3, sticky='w', padx=(0, 8), pady=(0, 4))
