@@ -26,13 +26,13 @@ import time
 import typing
 from contextlib import contextmanager
 
-from ..protocol import Mode, Register, Writer, parse_registers
-from ..multiplex import (
+from .protocol import Mode, Register, Writer, parse_registers
+from .multiplex import (
     INT8, INT16, INT32, F32,
     REPLY_BASE, TYPES, saturate,
 )
-from ..transport import Transport
-from ..transport_device import Frame, TransportDevice
+from .transport import Transport
+from .transport_device import Frame, TransportDevice
 
 
 # ---------------------------------------------------------------------------
@@ -529,7 +529,7 @@ def patch_singleton(controller_ids=None, verbose: bool = False):
             c = moteus.Controller(id=1)
             result = await c.set_position(position=0.5, query=True)
     """
-    from .. import transport_factory
+    from . import transport_factory
 
     old = transport_factory.GLOBAL_TRANSPORT
     sim = SimulatedTransport(controller_ids, verbose=verbose)
@@ -852,7 +852,7 @@ async def _demo(ids: typing.List[int], verbose: bool) -> None:
 
 
 def main() -> None:
-    from ..transport_factory import (
+    from .transport_factory import (
         get_transport_factories,
         get_singleton_transport,
         make_transport_args,
@@ -898,7 +898,7 @@ def main() -> None:
 
 async def _run_emulator(args, ids: typing.List[int], verbose: bool) -> None:
     """在真实 CAN 总线上运行硬件在环仿真（主动发包模式）。"""
-    from ..transport_factory import get_singleton_transport
+    from .transport_factory import get_singleton_transport
 
     print('正在打开 CAN 设备...')
     real_transport = get_singleton_transport(args)

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "moteus"
-version = "0.3.102"
+version = "0.4.0-tz"
 description = "moteus brushless controller library and tools"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -32,13 +32,12 @@ Homepage = "https://github.com/mjbots/moteus"
 
 [project.scripts]
 moteus_tool = "moteus.moteus_tool:main"
-moteus_gui_canfd = "moteus.app.gui_app:main"
 
 [tool.setuptools]
 include-package-data = true
 
 [tool.setuptools.packages.find]
-include = ["moteus*"]
+include = ["moteus", "moteus.*"]
 
 [tool.mypy]
 python_version = "3.11"

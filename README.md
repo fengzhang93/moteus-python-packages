@@ -3,10 +3,10 @@
 本库提供与 mjbots moteus 无刷电机控制器通信和控制的 Python 接口，包含：
 
 - 基础异步控制 API（`moteus.Controller`）
-- 面向 GUI 的高频同步控制层（`ControlManager`）
+- 面向 GUI 的高频同步控制层（`moteus.control_manager.ControlManager`）
 - CSV 数据记录能力（`CsvLogger`）
-- 离线模拟器（`moteus.app.simulator`）
-- 自定义高频 GUI（`moteus.app.gui_app`）
+- 离线模拟器（`moteus.simulator`）
+- 独立的 `moteus_gui` 包：官方 Qt 诊断工具 `tview` + 自建高频 Tkinter GUI `fastgui`
 
 ## 目录
 
@@ -21,22 +21,47 @@
 
 ## 安装
 
+仓库采用 monorepo 结构，包含两个独立可发布的包：`moteus`（核心库，位于 `moteus/`）和 `moteus_gui`（图形界面，位于 `moteus_gui/`，可选安装）。两者都以子目录形式安装，仓库根目录本身不是可安装的 Python 包。
+
 ### 方式一：克隆后本地安装
 
 ```bash
 git clone git@github.com:Turing-zero/moteus-python-packages.git
 cd moteus-python-packages
-pip install .
+pip install ./moteus
 ```
 
 ### 方式二：直接从 Git 安装
 
+通过 URL 的 `#subdirectory=` 片段指定子目录：
+
 ```bash
 # ssh
-pip install "git+ssh://git@github.com/Turing-zero/moteus-python-packages.git@v0.3.102-tz"
+pip install "git+ssh://git@github.com/Turing-zero/moteus-python-packages.git@v0.4.0-tz#subdirectory=moteus"
 
 # https
-pip install "git+https://github.com/Turing-zero/moteus-python-packages.git@v0.3.102-tz"
+pip install "git+https://github.com/Turing-zero/moteus-python-packages.git@v0.4.0-tz#subdirectory=moteus"
+```
+
+### 安装 `moteus_gui`（图形界面，可选）
+
+`moteus_gui` 依赖 `moteus`，需要先装好本仓库的 `moteus` 之后再安装：
+
+```bash
+pip install -e ./moteus       # 先装好 moteus（若尚未安装）
+pip install -e ./moteus_gui   # 再装 moteus_gui
+```
+
+也可以直接从 Git 安装：
+
+```bash
+# ssh
+pip install "git+ssh://git@github.com/Turing-zero/moteus-python-packages.git@v0.4.0-tz#subdirectory=moteus"
+pip install "git+ssh://git@github.com/Turing-zero/moteus-python-packages.git@v0.4.0-tz#subdirectory=moteus_gui"
+
+# https
+pip install "git+https://github.com/Turing-zero/moteus-python-packages.git@v0.4.0-tz#subdirectory=moteus"
+pip install "git+https://github.com/Turing-zero/moteus-python-packages.git@v0.4.0-tz#subdirectory=moteus_gui"
 ```
 
 ## CAN 适配器支持
@@ -99,35 +124,36 @@ asyncio.run(main())
 
 ## 图形界面
 
+两个 GUI 工具都由独立的 [`moteus_gui`](moteus_gui/README.md) 包提供，安装方式见上文"安装 `moteus_gui`"。
+
 ### 1) `moteus_gui.tview`（Diagnostic Protocol）
 
 文档：[Diagnostic Protocol](https://mjbots.github.io/moteus/protocol/diagnostic/)
-
-安装依赖：
-
-```bash
-pip install moteus_gui
-```
 
 运行示例：
 
 ```bash
 # Windows
+tview --can-iface candle --can-chan 0 --can-disable-brs
+# 或
 python -m moteus_gui.tview --can-iface candle --can-chan 0 --can-disable-brs
 
 # Ubuntu
-python -m moteus_gui.tview --can-iface socketcan --can-chan can0 --can-disable-brs
+tview --can-iface socketcan --can-chan can0 --can-disable-brs
 ```
 
-### 2) 自定义高频 CANFD GUI（`moteus.app.gui_app`）
+### 2) 自定义高频 CANFD GUI（`moteus_gui.fastgui.gui_app`）
 
 用于实时连接、发送指令、监控状态。
 
 ```bash
-python -m moteus.app.gui_app
-python -m moteus.app.gui_app --can-type candle --can-chan 0 --ids 1 --can-disable-brs
-python -m moteus.app.gui_app --can-type socketcan --can-chan can0 --ids 1,2 --can-disable-brs
-python -m moteus.app.gui_app --can-type fdcanusb --can-chan /dev/ttyUSB0 --ids 1,2 --can-disable-brs
+moteus_fastgui
+moteus_fastgui --can-type candle --can-chan 0 --ids 1 --can-disable-brs
+moteus_fastgui --can-type socketcan --can-chan can0 --ids 1,2 --can-disable-brs
+moteus_fastgui --can-type fdcanusb --can-chan /dev/ttyUSB0 --ids 1,2 --can-disable-brs
+
+# 或直接以模块方式运行：
+python -m moteus_gui.fastgui.gui_app --can-type candle --can-chan 0 --ids 1 --can-disable-brs
 ```
 
 关键页面：
@@ -142,7 +168,7 @@ python -m moteus.app.gui_app --can-type fdcanusb --can-chan /dev/ttyUSB0 --ids 1
 `CsvLogger` 是可插拔监听器，可将状态更新实时写入 CSV。
 
 ```python
-from moteus.app.control_manager import ControlManager, CsvLogger
+from moteus.control_manager import ControlManager, CsvLogger
 import time
 
 manager = ControlManager(cycle_hz=500)
@@ -189,20 +215,20 @@ encoder_validity
 
 ## 离线模拟器
 
-`moteus.app.simulator` 使用 PD 物理模型模拟控制器响应，可用于无硬件调试 GUI 或验证 CAN 报文解析。
+`moteus.simulator` 使用 PD 物理模型模拟控制器响应，可用于无硬件调试 GUI 或验证 CAN 报文解析。
 
 ```bash
 # 纯软件演示（无需硬件）
-python -m moteus.app.simulator --ids 1 2 3
+python -m moteus.simulator --ids 1 2 3
 
 # 硬件在环仿真：连接真实 CAN 适配器并主动发送模拟遥测
-python -m moteus.app.simulator --can-iface candle --can-chan 0 --ids 1 --rate 200
+python -m moteus.simulator --can-iface candle --can-chan 0 --ids 1 --rate 200
 ```
 
 作为库使用：
 
 ```python
-from moteus.app.simulator import SimulatedTransport, patch_singleton
+from moteus.simulator import SimulatedTransport, patch_singleton
 import moteus
 
 # 方式一：显式传入 transport
@@ -260,7 +286,7 @@ c = moteus.Controller(position_resolution=pr, query_resolution=qr)
 `ControlManager` 在后台线程运行 asyncio 事件循环，对外提供同步、线程安全 API，适合 GUI 或其他非异步程序。
 
 ```python
-from moteus.app.control_manager import ControlManager
+from moteus.control_manager import ControlManager
 
 manager = ControlManager(cycle_hz=500)
 manager.connect([1, 2], can_type='candle', can_chan='0')

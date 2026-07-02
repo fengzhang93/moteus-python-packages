@@ -64,7 +64,7 @@ from moteus.moteus import (
     move_to,
     TRANSPORT_FACTORIES)
 from moteus.protocol import ParsedRegisters, parse_registers, scale_register
-from moteus.app.control_manager import ControlManager, ControllerStatus, CsvLogger
+from moteus.control_manager import ControlManager, ControllerStatus, CsvLogger
 
 try:
     from moteus.version import VERSION

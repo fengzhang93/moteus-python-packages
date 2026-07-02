@@ -10,14 +10,17 @@
 
 Usage::
 
-    python -m moteus.app.gui_app
-    python -m moteus.app.gui_app --can-type socketcan --can-chan can0 --ids 1,2,3
-    python -m moteus.app.gui_app --can-type fdcanusb --can-chan /dev/ttyUSB0 --ids 1
-    python -m moteus.app.gui_app --can-type candle --can-chan 0 --ids 1
+    python -m moteus_gui.fastgui.gui_app
+    python -m moteus_gui.fastgui.gui_app --can-type socketcan --can-chan can0 --ids 1,2,3
+    python -m moteus_gui.fastgui.gui_app --can-type fdcanusb --can-chan /dev/ttyUSB0 --ids 1
+    python -m moteus_gui.fastgui.gui_app --can-type candle --can-chan 0 --ids 1
+
+    # or via the console script installed with this package:
+    moteus_fastgui --can-type socketcan --can-chan can0 --ids 1,2,3
 
 CSV logging (programmatic)::
 
-    from moteus.app.control_manager import ControlManager, CsvLogger
+    from moteus.control_manager import ControlManager, CsvLogger
 
     manager = ControlManager(cycle_hz=500)
     logger = CsvLogger('/tmp/data.csv', controller_ids=[1, 2])
@@ -40,8 +43,8 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, filedialog
 from typing import Dict, List, Optional
 
-from .control_manager import ControlManager, ControllerStatus, CsvLogger, ManagerState
-from ..protocol import Mode
+from moteus.control_manager import ControlManager, ControllerStatus, CsvLogger, ManagerState
+from moteus.protocol import Mode
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -340,7 +343,7 @@ class MoteusApp:
         ), foreground='gray', font=('', 8), justify='left').grid(
             row=r, column=0, columnspan=4, sticky='w', padx=8, pady=(4, 8))
 
-    # ── Status table ─────────────────────────────────────────────────────────
+    # ── Status table ──────────────────────────────────────────────────────────
 
     def _build_status_frame(self, parent: tk.Tk) -> None:
         frm = ttk.LabelFrame(parent, text='Controller Status')
@@ -531,7 +534,7 @@ class MoteusApp:
         self.var_csv_rows.set('Rows: 0')
         self._log(f'CSV logging stopped — {rows} rows written')
 
-    # ── Thread communication ──────────────────────────────────────────────────
+    # ── Thread communication ─────────────────────────────────────────────────
 
     def _register_listener(self) -> None:
         def _push(status: Dict[int, ControllerStatus]) -> None:
@@ -640,7 +643,7 @@ class MoteusApp:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog='python -m moteus.app.gui_app',
+        prog='python -m moteus_gui.fastgui.gui_app',
         description='moteus controller GUI',
     )
     parser.add_argument('--can-type', default='socketcan',
