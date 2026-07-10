@@ -28,6 +28,7 @@ import json
 import math
 import moteus
 import moteus.moteus_tool
+import moteus.transport_factory as transport_factory
 from moteus.moteus import namedtuple_to_dict
 import numpy
 import os
@@ -1979,8 +1980,12 @@ class TviewMainWindow():
     def __init__(self, options, parent=None):
         self.options = options
         self.port = None
+        self.transport = None
+        self.transport_task = None
+        self.populate_task = None
         self.devices = []
         self.default_rate = 100
+        self._shutdown_started = False
 
         self.user_task = None
 
@@ -2078,9 +2083,39 @@ class TviewMainWindow():
 
     def _open(self):
         self.transport = self._make_transport()
-        asyncio.create_task(self._run_transport())
+        self.transport_task = asyncio.create_task(self._run_transport())
 
-        asyncio.create_task(self._populate_devices())
+        self.populate_task = asyncio.create_task(self._populate_devices())
+
+    def shutdown(self):
+        if self._shutdown_started:
+            return
+        self._shutdown_started = True
+
+        self.logging_manager.stop_logging()
+
+        for attr_name in (
+            "user_task",
+            "fault_monitoring_task",
+            "transport_task",
+            "populate_task",
+        ):
+            task = getattr(self, attr_name, None)
+            if task is not None and not task.done():
+                task.cancel()
+            setattr(self, attr_name, None)
+
+        if self.fault_flash_timer is not None:
+            self.fault_flash_timer.stop()
+            self.fault_flash_timer = None
+
+        if self.transport is not None:
+            try:
+                transport_factory.close_singleton_transport()
+            except Exception as e:
+                print(f"Transport cleanup failed: {e}")
+            finally:
+                self.transport = None
 
     def _calculate_tree_key(self, device_address, transport):
         """Calculate the tree key for a device based on its address."""
@@ -3023,19 +3058,13 @@ def main():
     asyncio.set_event_loop(loop)
 
     tv = TviewMainWindow(args)
-
-    # Cleanup logging on exit
-    def cleanup():
-        tv.logging_manager.stop_logging()
-        os._exit(0)
-
-    # Currently there are many things that can barf on exit, let's
-    # just ignore all of them because, hey, we're about to exit!
-    app.aboutToQuit.connect(cleanup)
+    app.aboutToQuit.connect(tv.shutdown)
 
     tv.show()
-
-    app.exec_()
+    try:
+        app.exec_()
+    finally:
+        tv.shutdown()
 
 
 if __name__ == '__main__':

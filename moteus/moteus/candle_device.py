@@ -15,6 +15,7 @@
 import asyncio
 import collections
 import logging
+import sys
 import time
 import typing
 
@@ -38,8 +39,8 @@ class CandleDevice(TransportDevice):
         fd: bool = True,
         bitrate: int = 1_000_000,
         data_bitrate: int = 5_000_000,
-        sample_point: float = 87.5,
-        data_sample_point: float = 87.5,
+        sample_point: float = 80,
+        data_sample_point: float = 75,
         disable_brs: bool = False,
         listen_only: bool = False,
         termination: typing.Optional[bool] = None,
@@ -80,6 +81,7 @@ class CandleDevice(TransportDevice):
         self._fd = fd
         self._setup = False
         self._notifier = None
+        self._closed = False
 
         self._log_prefix = (
             f"candle:{serial_number}:{channel_index}"
@@ -184,11 +186,77 @@ class CandleDevice(TransportDevice):
     def empty_bus_tx_safe(self) -> bool:
         return True
 
+    def _call_cleanup_method(
+        self,
+        obj: typing.Any,
+        method_names: typing.Iterable[str],
+    ) -> None:
+        for method_name in method_names:
+            method = getattr(obj, method_name, None)
+            if not callable(method):
+                continue
+            try:
+                method()
+            except TypeError:
+                try:
+                    method(self._channel_index)
+                except Exception as e:
+                    logging.debug(
+                        f"candle cleanup skipped for {self._log_prefix} "
+                        f"{type(obj).__name__}.{method_name}: {e}"
+                    )
+            except Exception as e:
+                logging.debug(
+                    f"candle cleanup skipped for {self._log_prefix} "
+                    f"{type(obj).__name__}.{method_name}: {e}"
+                )
+
+    def _iter_cleanup_candidates(self):
+        seen = set()
+        stack = [self._can]
+        while stack:
+            obj = stack.pop()
+            if obj is None or id(obj) in seen:
+                continue
+            seen.add(id(obj))
+            yield obj
+            for attr in (
+                "_channel",
+                "channel",
+                "_device",
+                "device",
+                "candle",
+                "_candle",
+            ):
+                child = getattr(obj, attr, None)
+                if child is not None:
+                    stack.append(child)
+
     def close(self):
+        if self._closed:
+            return
+        self._closed = True
+
         if self._notifier:
-            self._notifier.stop()
+            try:
+                self._notifier.stop(timeout=1.0)
+            except TypeError:
+                self._notifier.stop()
+            except Exception as e:
+                logging.debug(
+                    f"candle notifier stop skipped for {self._log_prefix}: {e}"
+                )
             self._notifier = None
-        self._can.shutdown()
+
+        for obj in self._iter_cleanup_candidates():
+            self._call_cleanup_method(
+                obj,
+                ("shutdown", "stop", "close", "reset"),
+            )
+
+        self._setup = False
+        if sys.platform == "win32":
+            time.sleep(0.1)
 
     async def __aenter__(self):
         return self

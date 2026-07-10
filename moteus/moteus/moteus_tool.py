@@ -37,6 +37,7 @@ from . import moteus
 from . import aiostream
 from . import regression
 from . import calibrate_encoder as ce
+from .transport_factory import close_singleton_transport
 from .moteus import namedtuple_to_dict
 
 from .device_info import DeviceAddress
@@ -2302,7 +2303,7 @@ class Runner:
 
     def __exit__(self, type, value, traceback):
         if self.transport and hasattr(self.transport, 'close'):
-            self.transport.close()
+            close_singleton_transport()
 
     async def start(self):
         self.transport = moteus.get_singleton_transport(self.args)

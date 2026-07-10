@@ -306,3 +306,15 @@ def get_singleton_transport(args=None):
 
     GLOBAL_TRANSPORT = transport.Transport(devices)
     return GLOBAL_TRANSPORT
+
+
+def close_singleton_transport():
+    global GLOBAL_TRANSPORT
+
+    if GLOBAL_TRANSPORT is None:
+        return
+
+    try:
+        GLOBAL_TRANSPORT.close()
+    finally:
+        GLOBAL_TRANSPORT = None
