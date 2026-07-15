@@ -714,6 +714,21 @@ def _make_git_hash(hash):
     return ''.join(f"{x:02x}" for x in hash)
 
 
+def _format_version(version):
+    major = (version >> 16) & 0xff
+    minor = (version >> 8) & 0xff
+    micro = version & 0xff
+    return f"{major}.{minor}.{micro}"
+
+
+def _split_version(version):
+    return (
+        (version >> 16) & 0xff,
+        (version >> 8) & 0xff,
+        version & 0xff,
+    )
+
+
 class ElfMapping:
     virtual_address = 0
     physical_address = 0
@@ -934,6 +949,29 @@ class Stream:
         uuid = await self.read_uuid()
 
         result = {}
+        firmware_version = int(firmware.version)
+        release = getattr(firmware, 'release_version', None)
+        release_major, release_minor, release_patch = (
+            getattr(release, 'major', None),
+            getattr(release, 'minor', None),
+            getattr(release, 'patch', None),
+        )
+        if None in (release_major, release_minor, release_patch):
+            release_major, release_minor, release_patch = (
+                getattr(firmware, 'release_major', None),
+                getattr(firmware, 'release_minor', None),
+                getattr(firmware, 'release_patch', None),
+            )
+        if None in (release_major, release_minor, release_patch):
+            release_version = int(
+                getattr(firmware, 'release_version', firmware_version))
+            release_major, release_minor, release_patch = (
+                _split_version(release_version))
+        result['firmware_version'] = f"0x{firmware_version:08x}"
+        result['firmware_version_text'] = _format_version(firmware_version)
+        result['release_major'] = int(release_major)
+        result['release_minor'] = int(release_minor)
+        result['release_patch'] = int(release_patch)
         result['serial_number'] = _base64_serial_number(
             firmware.serial_number[0],
             firmware.serial_number[1],
